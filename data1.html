@@ -1,0 +1,93 @@
+
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTCUSDT Price and Buyers/Sellers Percentage</title>
+    <style>
+        .green { color: green; }
+        .red { color: red; }
+        .black { color: black; }
+        .bold { font-weight: bold; }
+        .large { font-size: 30px; }
+    </style>
+</head>
+<body>
+    <h1>BTCUSDT Price and Buyers/Sellers Percentage</h1>
+    <div id="price" class="bold large red">BTCUSDT Price: 61735.66</div>
+    <div id="buyersPercentage" class="bold large black">Buyers Percentage: 43.13%</div>
+    <div id="sellersPercentage" class="bold large red">Sellers Percentage: 56.87%</div>
+
+    <script>
+        // Function to fetch BTCUSDT price from Binance
+        function fetchBTCPrice() {
+            fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT')
+                .then(response => response.json())
+                .then(data => {
+                    const price = parseFloat(data.price).toFixed(2); // Limit to two decimal places
+                    const priceElement = document.getElementById('price');
+                    priceElement.innerText = `BTCUSDT Price: ${price}`;
+                    // Change font color based on price change
+                    if (priceElement.previousPrice && parseFloat(price) > parseFloat(priceElement.previousPrice)) {
+                        priceElement.classList.remove('red');
+                        priceElement.classList.add('green');
+                    } else if (priceElement.previousPrice && parseFloat(price) < parseFloat(priceElement.previousPrice)) {
+                        priceElement.classList.remove('green');
+                        priceElement.classList.add('red');
+                    }
+                    priceElement.previousPrice = price;
+                })
+                .catch(error => console.error('Error fetching BTCUSDT price from Binance:', error));
+        }
+
+        // Function to fetch order book data from Binance
+        function fetchOrderBook() {
+            fetch('https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=100')
+                .then(response => response.json())
+                .then(data => {
+                    const bids = data.bids;
+                    const asks = data.asks;
+
+                    // Calculate total bid quantity and ask quantity
+                    const totalBidQuantity = bids.reduce((acc, bid) => acc + parseFloat(bid[1]), 0);
+                    const totalAskQuantity = asks.reduce((acc, ask) => acc + parseFloat(ask[1]), 0);
+
+                    // Calculate percentage of buyers and sellers
+                    const totalQuantity = totalBidQuantity + totalAskQuantity;
+                    const buyersPercentage = (totalBidQuantity / totalQuantity) * 100;
+                    const sellersPercentage = (totalAskQuantity / totalQuantity) * 100;
+
+                    const buyersElement = document.getElementById('buyersPercentage');
+                    const sellersElement = document.getElementById('sellersPercentage');
+
+                    buyersElement.innerText = `Buyers Percentage: ${buyersPercentage.toFixed(2)}%`;
+                    sellersElement.innerText = `Sellers Percentage: ${sellersPercentage.toFixed(2)}%`;
+
+                    // Change font color based on buyer/seller dominance
+                    if (buyersPercentage > sellersPercentage) {
+                        buyersElement.classList.remove('black', 'red');
+                        buyersElement.classList.add('green');
+                        sellersElement.classList.remove('green', 'red');
+                        sellersElement.classList.add('black');
+                    } else {
+                        buyersElement.classList.remove('green', 'red');
+                        buyersElement.classList.add('black');
+                        sellersElement.classList.remove('black', 'green');
+                        sellersElement.classList.add('red');
+                    }
+                })
+                .catch(error => console.error('Error fetching order book data from Binance:', error));
+        }
+
+        // Fetch BTCUSDT price and order book data on page load
+        fetchBTCPrice();
+        fetchOrderBook();
+
+        // Refresh BTCUSDT price and order book data every 5 seconds
+        setInterval(() => {
+            fetchBTCPrice();
+            fetchOrderBook();
+        }, 100);
+    </script>
+
+
+</body></html>
