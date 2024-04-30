@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live BTCUSDT Price and Depth</title>
+<style>
+    /* Define CSS styles for price and percentages */
+    #livePrice {
+        font-size: 18px;
+    }
+    #buyingPercentage, #sellingPercentage, #openOrders, #completedOrders {
+        font-size: 16px;
+    }
+    .green {
+        color: green;
+    }
+    .red {
+        color: red;
+    }
+</style>
+</head>
+<body>
+<h1>Live BTCUSDT Price and Depth</h1>
+<div id="livePrice"></div>
+<div id="buyingPercentage"></div>
+<div id="sellingPercentage"></div>
+<div id="openOrders">Open Orders: None</div>
+<div id="completedOrders">Completed Orders: 0</div>
+
+<script>
+// Establish WebSocket connection to Binance's WebSocket API for depth data
+const depthWS = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@depth");
+
+// WebSocket connection to Binance's WebSocket API for live price data
+const priceWS = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@trade");
+
+// Initialize variables to store order book data
+let bids = [];
+let asks = [];
+let livePrice = null;
+let openOrderPrice = null;
+let completedOrders = 0;
+
+// Handle incoming depth messages
+depthWS.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    
+    // Ensure data structure is valid
+    if (data.b && data.a) {
+        // Update order book data
+        bids = data.b;
+        asks = data.a;
+        
+        // Update displayed percentages
+        updatePercentages();
+    }
+};
+
+// Handle incoming price messages
+priceWS.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    
+    // Ensure data structure is valid
+    if (data.p) {
+        // Update live price
+        const previousPrice = livePrice;
+        livePrice = parseFloat(data.p);
+        
+        // Update displayed live price
+        const livePriceElement = document.getElementById("livePrice");
+        livePriceElement.textContent = `Live Price: ${livePrice}`;
+        
+        // Check if price has gone up or down and update color
+        if (previousPrice !== null && livePrice > previousPrice) {
+            livePriceElement.classList.add("green");
+            livePriceElement.classList.remove("red");
+        } else if (previousPrice !== null && livePrice < previousPrice) {
+            livePriceElement.classList.add("red");
+            livePriceElement.classList.remove("green");
+        }
+        
+        // Check if buying percentage is higher than 80%
+        if (openOrderPrice === null && buyingPercentage() > 80) {
+            openOrderPrice = livePrice;
+            const openOrdersElement = document.getElementById("openOrders");
+            openOrdersElement.textContent = `Open Orders: ${openOrderPrice}`;
+        }
+        
+        // Check if live price is higher than open order price by 0.01%
+        if (openOrderPrice !== null && (livePrice / openOrderPrice) > 1.0001) {
+            completedOrders++;
+            openOrderPrice = null;
+            const completedOrdersElement = document.getElementById("completedOrders");
+            completedOrdersElement.textContent = `Completed Orders: ${completedOrders}`;
+            
+            // After completion, wait for 1 second before repeating
+            setTimeout(repeatSteps, 1000);
+        }
+    }
+};
+
+// Update the displayed buying and selling percentages
+function updatePercentages() {
+    // Check if bids and asks arrays contain data
+    if (bids.length === 0 || asks.length === 0) {
+        console.log("Bids or asks data is empty.");
+        return;
+    }
+    
+    // Calculate total quantities for the first 50 bids and asks
+    let totalBuyQuantity = 0;
+    let totalSellQuantity = 0;
+    for (let i = 0; i < 50; i++) {
+        if (bids[i] && bids[i][1]) {
+            totalBuyQuantity += parseFloat(bids[i][1]);
+        }
+        if (asks[i] && asks[i][1]) {
+            totalSellQuantity += parseFloat(asks[i][1]);
+        }
+    }
+
+    // Calculate percentages
+    const totalQuantity = totalBuyQuantity + totalSellQuantity;
+    const buyingPercentage = ((totalBuyQuantity / totalQuantity) * 100).toFixed(2);
+    const sellingPercentage = ((totalSellQuantity / totalQuantity) * 100).toFixed(2);
+
+    // Update displayed percentages
+    const buyingPercentageElement = document.getElementById("buyingPercentage");
+    buyingPercentageElement.textContent = `Buying Percentage: ${buyingPercentage}%`;
+
+    const sellingPercentageElement = document.getElementById("sellingPercentage");
+    sellingPercentageElement.textContent = `Selling Percentage: ${sellingPercentage}%`;
+}
+
+// Calculate buying percentage
+function buyingPercentage() {
+    // Check if bids and asks arrays contain data
+    if (bids.length === 0 || asks.length === 0) {
+        console.log("Bids or asks data is empty.");
+        return 0;
+    }
+    
+    // Calculate total quantities for the first 50 bids and asks
+    let totalBuyQuantity = 0;
+    let totalSellQuantity = 0;
+    for (let i = 0; i < 50; i++) {
+        if (bids[i] && bids[i][1]) {
+            totalBuyQuantity += parseFloat(bids[i][1]);
+        }
+        if (asks[i] && asks[i][1]) {
+            totalSellQuantity += parseFloat(asks[i][1]);
+        }
+    }
+
+    // Calculate buying percentage
+    const totalQuantity = totalBuyQuantity + totalSellQuantity;
+    return ((totalBuyQuantity / totalQuantity) * 100).toFixed(2);
+}
+
+// Function to repeat steps after completion
+function repeatSteps() {
+    // Reset open order and update display
+    openOrderPrice = null;
+    const openOrdersElement = document.getElementById("openOrders");
+    openOrdersElement.textContent = `Open Orders: None`;
+}
+</script>
+</body>
+</html>
